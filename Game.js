@@ -1,16 +1,21 @@
 ﻿// Global Variables............................................................
 
-var introduction = [
-	"The smell of gasoline meets you as you step outside ",
-	"What do you do?",
+var menu_text = [
+	"HELP",
+	"SAVE",
+	"RESTORE"
 ];
 
-var canvas_width = 800;
-var canvas_height = 600;
+var canvas_width = 640;
+var canvas_height = 480;
 var context = null;
+var focused = false;
 
 var start_time = null;
 var cursor_flicker_time = 0;
+
+var image_cloak_skeleton = null;
+var image_focus_indicator = null;
 
 // User Command Line...........................................................
 
@@ -127,8 +132,95 @@ function keydown_handler(event) {
 
 // Drawing Functions...........................................................
 
-function draw_text(context, text) {
+function draw_frame() {
+	// entire canvas is cleared every frame
+	context.clearRect(0, 0, canvas_width, canvas_height);
 	
+	// Draw screen background
+	{
+		context.drawImage(image_cloak_skeleton, 0, 16, 726, 426);
+	}
+	
+	// Draw main menu at top of canvas
+	{
+		var menu_x = 0;
+		var menu_y = 0;
+		var menu_width = canvas_width;
+		var menu_height = 16;
+	
+		context.fillStyle = "rgb(191, 191, 191)";
+		context.fillRect(menu_x, menu_y, menu_width, menu_height);
+		
+		var text_y = menu_y + menu_height - 2;
+		
+		context.fillStyle = "rgb(0, 0, 0)";
+		context.fillText("Hello and Welcome! —", menu_x, text_y);
+		
+		var button_spacing = 9;
+		var button_x = 190;
+		for (var i = 0, n = menu_text.length; i < n; ++i) {
+			var text = menu_text[i];
+			context.fillText(text, menu_x + button_x, text_y);
+			button_x += (text.length + 1) * button_spacing;
+		}
+		
+		// draw indicator to show when the canvas has focus
+		{
+			var indicator_width = 9;
+			var margin = 3;
+			var clip_x = focused ? 9 : 0;
+			context.drawImage(
+				image_focus_indicator,
+				clip_x,
+				0,
+				indicator_width,
+				indicator_width,
+				menu_x + menu_width - indicator_width - margin,
+				menu_y + margin,
+				indicator_width,
+				indicator_width);
+		}
+	}
+	
+	// Draw Command Box at bottom of canvas
+	{
+		var command_box_x = 16;
+		var command_box_y = canvas_height - 16;
+		
+		// since a monospaced (fixed-width) font is used,
+		// the glyph dimensions should be constant
+		var glyph_width = 8.8;
+		var glyph_height = 16;
+		
+		// draw command text
+		{
+			var command_text = user_command.text.join("");
+			
+			context.font = "16px monospace";
+			context.fillStyle = "rgb(255, 255, 255)";
+			context.fillText(">", command_box_x - glyph_width, command_box_y);
+			context.fillText(command_text, command_box_x, command_box_y);
+		}
+		
+		// The cursor flickers on and off on a timer;
+		// So, check if it should be flickered on before drawing it.
+		var one_second = 1000;
+		if (cursor_flicker_time % one_second < one_second / 2) {
+			var x = command_box_x + glyph_width * user_command.cursor;
+			var y = command_box_y - glyph_height;
+			context.fillRect(x, y, glyph_width, glyph_height);
+		}
+	}
+}
+
+// Focus Handlers..............................................................
+
+function focusin_handler(event) {
+	focused = true;
+}
+
+function focusout_handler(event) {
+	focused = false;
 }
 
 // Game Functions..............................................................
@@ -137,42 +229,20 @@ function game_loop(timestamp) {
 	var delta_time = timestamp - start_time;
 	start_time = timestamp;
 	
-	var command_text = user_command.text.join("");
-	var cursor_position = user_command.cursor;
-	
 	// Update game state
 	{
 		cursor_flicker_time += delta_time;
 	}
 	
-	// Draw
-	{
-		context.clearRect(0, 0, canvas_width, canvas_height);
-		
-		var command_box_x = 16;
-		var command_box_y = canvas_height - 16;
-		
-		var letter_width = 8.8;
-		var letter_height = 16;
-		
-		// draw command text
-		{
-			context.font = "16px monospace";
-			context.fillStyle = "rgb(255, 255, 255)";
-			context.fillText(">", command_box_x - letter_width, command_box_y);
-			context.fillText(command_text, command_box_x, command_box_y);
-		}
-		
-		// draw cursor when it's flickered on
-		var one_second = 1000;
-		if (cursor_flicker_time % one_second < one_second / 2) {
-			var x = command_box_x + letter_width * cursor_position;
-			var y = command_box_y - letter_height;
-			context.fillRect(x, y, letter_width, letter_height);
-		}
-	}
+	draw_frame();
 	
 	window.requestAnimationFrame(game_loop);
+}
+
+function load_image(filename) {
+	var image = new Image();
+	image.src = filename;
+	return image;
 }
 
 function run_game(canvas_ID) {
@@ -182,9 +252,19 @@ function run_game(canvas_ID) {
 	
 	context = canvas.getContext('2d');
 	if (context) {
+		// use point/nearest-neighbor filtering when drawing images
+		// so pixel sharpness is preserved for upscaling
+		context.imageSmoothingEnabled = false;
+		
 		window.requestAnimationFrame(game_loop);
 	}
 	
+	image_cloak_skeleton = load_image("Cloak-Skeleton.png");
+	image_focus_indicator = load_image("Focus-Indicator.png");
+	
 	canvas.addEventListener("keypress", keypress_handler);
 	canvas.addEventListener("keydown", keydown_handler);
+	
+	canvas.addEventListener("focusin", focusin_handler);
+	canvas.addEventListener("focusout", focusout_handler);
 }

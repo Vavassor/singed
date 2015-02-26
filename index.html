@@ -22,60 +22,25 @@ body {
 	background-color: #000000;
 }
 
-a {
-	text-decoration: none;
-}
-
-/**** MAIN ****/
-
-#main_header {
-	padding-left: 0.5em;
-	background: #CCCCCC;
-}
-
-#title_heading {
-	font: normal 1em 'Bree Serif', Georgia, serif;
-}
-
-#main_navigation {
-	color: #000000;
-}
-
-#main_navigation a {
-	color: #000000;
-}
-
-#main_navigation a:hover {
-	background: #000000;
-	color: #FFFFFF;
-}
-
 main {
 	display: block;
-	width: 800px;
+	width: 640px;
 	margin: auto;
 	clear: both;
+	border: 1px solid #FFFFFF;
 }
 </style>
 
-<link rel="shortcut icon" href="/favicon.ico">
+<link href="Icon-16.png" rel="icon" sizes="16x16" type="image/png">
+<link href="Icon-32.png" rel="icon" sizes="32x32" type="image/png">
 
-<script src="Main.js"></script>
+<script src="Game.js"></script>
 </head>
 
 <body>
 
-<header id="main_header">
-<nav id="main_navigation">
-	<span id="title_heading">Hello and welcome! —</span>
-	<a href="#">HELP</a>
-	<a href="#">SAVE</a>
-	<a href="#">RESTORE</a>
-</nav>
-</header>
-
 <main role="main">
-	<canvas id="singed_canvas" width="800" height="600" tabindex="0"></canvas>
+	<canvas id="singed_canvas" width="640" height="480" tabindex="0"></canvas>
 	<script>
 		onload = function() {
 			run_game("singed_canvas");
