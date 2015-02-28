@@ -20,6 +20,8 @@ var image_sprite_sheet = null;
 
 var audio_music = null;
 
+var font_white = null;
+
 // User Command Line...........................................................
 
 function clamp(value, minimum, maximum) {
@@ -32,7 +34,7 @@ function clamp(value, minimum, maximum) {
 
 function CommandLine() {
 	this.text = [];
-	this.max_characters = 60;
+	this.max_characters = 52;
 	this.cursor = 0;
 	
 	this.set_cursor = function(index) {
@@ -96,7 +98,7 @@ function get_keypress_character(event) {
 
 function keypress_handler(event) {
 	var character = get_keypress_character(event);
-	if (character && character.search(/[a-z0-9 .?!:;'"]/i) >= 0) {
+	if (character && character.search(/[a-z0-9 .,?!:;'"]/i) >= 0) {
 		user_command.insert_character(character);
 	}
 }
@@ -135,6 +137,60 @@ function keydown_handler(event) {
 
 // Drawing Functions...........................................................
 
+// class for a bitmap/pixel font: the font is represented by an image
+// containing all the symbols needed for drawing strings.
+function Font(image, glyph_width, glyph_height) {
+	this.table = "0123456789/()&!?ABCDEFGHIJKLMNOPQRSTUVWXYZ.,;:'\"abcdefghijklmnopqrstuvwxyz~—<> ";
+	this.table_columns = 16;
+	this.image = image;
+	this.glyph_width = glyph_width;
+	this.glyph_height = glyph_height;
+	this.spacing = 0;
+	
+	this.lookup_character_index = function(character) {
+		for (var i = 0, n = this.table.length; i < n; ++i) {
+			if (character == this.table.charAt(i)) {
+				return i;
+			}
+		}
+		return -1;
+	}
+}
+
+// This loops through each character in the text string and looks up
+// the corresponding symbol in the font image. It draws to the context
+// according to the position offsets given (x and y) while accounting 
+// for the spacing and dimensions for the font
+function draw_text(context, text, font, x, y) {
+	var glyph_width = font.glyph_width;
+	var glyph_height = font.glyph_height;
+	var spacing = font.spacing;
+	var num_columns = font.table_columns;
+	
+	for (var i = 0, n = text.length; i < n; ++i) {
+		var character = text.charAt(i);
+		var index = font.lookup_character_index(character);
+		if (index >= 0) {
+			var column = Math.floor(index % num_columns);
+			var row = Math.floor(index / num_columns);
+			var sheet_x = column * glyph_width;
+			var sheet_y = row * glyph_height;
+			var draw_spacing = glyph_width + spacing;
+			
+			context.drawImage(
+				font.image,
+				sheet_x,
+				sheet_y,
+				glyph_width,
+				glyph_height,
+				x + draw_spacing * i,
+				y,
+				glyph_width,
+				glyph_height);
+		}
+	}
+}
+
 function Sprite() {
 	this.x = 0;
 	this.y = 0;
@@ -150,10 +206,6 @@ function rgb_to_style(red, green, blue) {
 	return "rgb(" + red + ", " + green + ", " + blue + ")";
 }
 
-function get_font_style(size, generic_family) {
-	return size + "px " + generic_family;
-}
-
 function draw_main_menu() {
 	var x = 0;
 	var y = 0;
@@ -166,21 +218,17 @@ function draw_main_menu() {
 		context.fillRect(x, y, width, height);
 	}
 	
-	var text_y = y + height - 2;
+	var text_y = y - 1;
 	
 	// bar title text
-	{
-		context.font = get_font_style(8, "monospace");
-		context.fillStyle = rgb_to_style(0, 0, 0);
-		context.fillText("Esc Menu — ", x, text_y);
-	}
+	draw_text(context, "Esc Menu — ", font_white, x, text_y);
 	
 	// the text for each menu button
-	var button_spacing = 6;
-	var button_x = 48;
+	var button_spacing = 8;
+	var button_x = 96;
 	for (var i = 0, n = menu_text.length; i < n; ++i) {
 		var text = menu_text[i];
-		context.fillText(text, x + button_x, text_y);
+		draw_text(context, text, font_white, x + button_x, text_y);
 		button_x += (text.length + 1) * button_spacing;
 	}
 }
@@ -197,37 +245,29 @@ function draw_command_box() {
 		context.fillRect(x, y, width, height);
 	}
 	
-	// since a monospaced (fixed-width) font is used,
-	// the glyph dimensions should be constant
-	var glyph_width = 4.4;
-	var glyph_height = 8;
-	
 	// draw the text being entered by the user
 	{
 		var command_text = user_command.text.join("");
-
-		var text_x = x;
-		var text_y = y + glyph_height;
-
-		context.font = get_font_style(8, "monospace");
-		context.fillStyle = rgb_to_style(255, 255, 255);
-		context.fillText(">", text_x, text_y);
-		context.fillText(command_text, text_x + glyph_width, text_y);
+		draw_text(context, ">" + command_text, font_white, x, y);
 	}
 	
 	// The cursor flickers on and off over time;
 	// So, check if it should be flickered on before drawing it.
 	var one_second = 1000;
 	if (game_time % one_second < one_second / 2) {
+		var glyph_width = font_white.glyph_width;
+		var glyph_height = font_white.glyph_height;
 		var cursor_x = x + glyph_width * user_command.cursor + glyph_width;
 		var cursor_y = y;
+		
+		context.fillStyle = rgb_to_style(255, 255, 255);
 		context.fillRect(cursor_x, cursor_y, glyph_width, glyph_height);
 	}
 }
 
 function draw_focus_alert() {
 	var height = 24;
-	var width = 88;
+	var width = 144;
 	var x = screen_width / 2 - width / 2;
 	var y = screen_height / 2 - height / 2;
 	
@@ -237,20 +277,13 @@ function draw_focus_alert() {
 		context.fillRect(x, y, width, height);
 	}
 	
-	var glyph_height = 8;
 	var top_margin = 2;
 	var left_margin = 4;
+	var text_x = x + left_margin;
+	var text_y = y + top_margin;
 
-	context.font = get_font_style(8, "monospace");
-	context.fillStyle = rgb_to_style(0, 0, 0);
-	context.fillText(
-		"Click here or use",
-		x + left_margin,
-		y + glyph_height + top_margin);
-	context.fillText(
-		"Tab key to focus!",
-		x + left_margin,
-		y + 2 * glyph_height + top_margin);
+	draw_text(context, "Click here or use", font_white, text_x, text_y);
+	draw_text(context, "Tab key to focus!", font_white, text_x, text_y + font_white.glyph_height);
 }
 
 function draw_frame() {
@@ -268,8 +301,8 @@ function draw_frame() {
 			sprite.sheet_y,
 			sprite.width,
 			sprite.height,
-			sprite.x,
-			sprite.y,
+			Math.floor(sprite.x),
+			Math.floor(sprite.y),
 			sprite.width,
 			sprite.height);
 	}
@@ -358,7 +391,10 @@ function run_game(canvas_ID) {
 		image_sprite_sheet = image_background;
 		
 		audio_music = load_audio("Fairy");
-		audio_music.volume = 0;
+		audio_music.volume = 0.0;
+		
+		var image_font_white = load_image("Font.png");
+		font_white = new Font(image_font_white, 6, 8);
 		
 		var sprite = new Sprite();
 		sprite.x = 127;
